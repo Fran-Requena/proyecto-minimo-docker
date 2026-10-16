@@ -5,8 +5,8 @@ Pizarra de post-its compartida: escribes una nota, eliges color, y todos la ven.
 La funcionalidad es mínima **a propósito**: este repositorio es una plantilla para practicar el **despliegue** (Git, Docker y AWS) en DAW, no para aprender a programar la aplicación.
 
 - **Backend:** Spring Boot 3 + Java 21 (API REST en `/api`)
-- **Frontend:** un único `index.html` servido por Nginx
-- **Base de datos:** PostgreSQL (contenedor en desarrollo, RDS en el laboratorio)
+- **Frontend:** un único `index.html` (en producción lo serviría Nginx con `frontend/nginx.conf`)
+- **Base de datos:** PostgreSQL al desplegar; H2 en memoria al ejecutar en tu PC con el perfil `local`
 
 ```
 navegador ──► Nginx (frontend:80) ──/api/──► Spring Boot (backend:8080) ──► PostgreSQL
@@ -20,20 +20,54 @@ navegador ──► Nginx (frontend:80) ──/api/──► Spring Boot (backen
 │   ├── src/main/java/...     código (notas, estado, errores)
 │   ├── src/test/java/...     tests con H2 y MockMvc
 │   ├── pom.xml
-│   ├── mvnw, mvnw.cmd        Maven Wrapper (no hace falta instalar Maven)
-│   └── Dockerfile            imagen en dos etapas: compilar y ejecutar
+│   └── mvnw, mvnw.cmd        Maven Wrapper (no hace falta instalar Maven)
 ├── frontend/
 │   ├── index.html            la web completa (HTML + CSS + JS)
-│   ├── nginx.conf            sirve la web y reenvía /api/ al backend
-│   └── Dockerfile
-├── docker-compose.yml        DESARROLLO: postgres + backend + frontend
-├── docker-compose.lab.yml    LABORATORIO: backend + frontend (la BD es RDS)
+│   └── nginx.conf            sirve la web y reenvía /api/ al backend
 └── .env.example              plantilla de variables de entorno
 ```
 
-## Variables de entorno
+## Ejecutarlo en tu PC (perfil `local`)
 
-Se definen en un fichero `.env` (cópialo de `.env.example`). El `.env` **nunca** se sube a Git.
+Solo necesitas **Java 21 o superior**. No hace falta instalar PostgreSQL ni Docker: con el perfil `local` el programa usa una base de datos H2 en memoria (los datos se pierden al parar) y no exige variables de entorno.
+
+Desde la carpeta `backend`:
+
+**Windows (PowerShell o CMD)**
+
+```
+cd backend
+mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+```
+
+**Linux / macOS**
+
+```bash
+cd backend
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+**Desde el IDE** (IntelliJ, VS Code, Eclipse/STS): abre la clase `MuroNotasApplication` y crea una configuración de ejecución con una de estas opciones:
+
+- Variable de entorno `SPRING_PROFILES_ACTIVE=local`, o
+- Argumento del programa `--spring.profiles.active=local`.
+
+Importante: la carpeta de trabajo (*working directory*) debe ser `backend` (o la raíz del repositorio) para que encuentre `frontend/index.html`.
+
+**Qué debes ver:** abre <http://localhost:8080>. Aparece la web del muro de notas con la franja superior en verde (`API: OK`, `BD: OK`), y puedes crear, dar like y borrar notas. También funciona <http://localhost:8080/api/estado>, que devuelve algo como `{"api":"ok","bd":"ok","contenedor":"...","version":"1.0.0"}`.
+
+Para parar el programa: `Ctrl+C`.
+
+### Tests del backend
+
+```bash
+cd backend
+./mvnw test        # en Windows: mvnw.cmd test
+```
+
+## Variables de entorno (despliegue con PostgreSQL)
+
+Sin el perfil `local`, el backend se conecta a PostgreSQL con estas variables. Se definen en un fichero `.env` (cópialo de `.env.example`). El `.env` **nunca** se sube a Git.
 
 | Variable      | Obligatoria | Por defecto | Para qué sirve |
 |---------------|-------------|-------------|----------------|
@@ -42,12 +76,10 @@ Se definen en un fichero `.env` (cópialo de `.env.example`). El `.env` **nunca*
 | `DB_NAME`     | No          | `muronotas` | Nombre de la base de datos |
 | `DB_USER`     | No          | `postgres`  | Usuario de la base de datos |
 | `DB_PASSWORD` | Sí          | —           | Contraseña del usuario |
-| `DB_SSLMODE`  | No          | `require`   | `require` para RDS, `disable` para el postgres local |
+| `DB_SSLMODE`  | No          | `require`   | `require` para RDS, `disable` para un postgres local |
 
 Si falta `DB_HOST` o `DB_PASSWORD`, el backend no arranca y lo dice en el log:
 `ERROR: falta la variable de entorno DB_HOST.`
-
-En desarrollo, `docker-compose.yml` fija `DB_HOST=postgres` y `DB_SSLMODE=disable`, así que solo usa del `.env` el nombre, el usuario y la contraseña.
 
 ## API
 
@@ -61,61 +93,21 @@ En desarrollo, `docker-compose.yml` fija `DB_HOST=postgres` y `DB_SSLMODE=disabl
 
 La web consulta `/api/estado` cada 10 segundos y lo muestra en la franja de arriba (verde si todo va bien, rojo si algo falla).
 
-## Arrancar en desarrollo
-
-Necesitas Docker con Docker Compose.
-
-```bash
-cp .env.example .env
-docker compose up --build
-```
-
-Abre <http://localhost:8080>. Para pararlo: `Ctrl+C`, o `docker compose down` (añade `-v` si quieres borrar también los datos). **[POR VERIFICAR EN LAB LIMPIO]**
-
-Solo se publica el puerto del frontend; postgres y el backend solo son accesibles dentro de la red interna de Docker.
-
-### Tests del backend
-
-No necesitan Docker ni PostgreSQL (usan H2 en memoria). Solo hace falta Java 21 o superior:
-
-```bash
-cd backend
-./mvnw test        # en Windows: mvnw.cmd test
-```
-
-### Sobre la tabla de la base de datos
-
 Hibernate crea la tabla `notas` al arrancar (`spring.jpa.hibernate.ddl-auto=update`). Es cómodo para aprender, pero **en un proyecto real se usaría Flyway o Liquibase** para versionar los cambios del esquema.
 
-## Despliegue en el laboratorio
+## Tu tarea
 
-> Resumen. **La guía detallada, paso a paso, irá en T03.** Todo este apartado está **[POR VERIFICAR EN LAB LIMPIO]**.
+El programa ya funciona, pero **le faltan todos los ficheros de contenedores**. Tu tarea es **dockerizar el proyecto y desplegarlo en el laboratorio** siguiendo la guía **T03**.
 
-1. Crear una base de datos PostgreSQL en **RDS** y anotar su endpoint, usuario y contraseña. Crear dentro la base de datos `muronotas` si RDS no la ha creado.
-2. Lanzar una instancia **EC2** con Docker y Docker Compose instalados.
-3. En el grupo de seguridad de RDS, permitir el puerto 5432 **solo desde el grupo de seguridad de la EC2**.
-4. En la EC2, clonar este repositorio (rama `muro-notas`) y crear el `.env` a partir de `.env.example` con los datos de RDS (`DB_SSLMODE=require`).
-5. Arrancar:
-   ```bash
-   docker compose -f docker-compose.lab.yml up -d --build
-   ```
-6. Comprobar los logs: `docker compose -f docker-compose.lab.yml logs -f backend`.
+Tendrás que crear estos ficheros:
 
-### Cómo acceder a la web en el lab
+| Fichero                    | Para qué |
+|----------------------------|----------|
+| `backend/Dockerfile`       | Imagen del backend |
+| `backend/.dockerignore`    | Qué no se copia al construir la imagen del backend |
+| `frontend/Dockerfile`      | Imagen del frontend (Nginx con `index.html` y `nginx.conf`) |
+| `frontend/.dockerignore`   | Qué no se copia al construir la imagen del frontend |
+| `docker-compose.yml`       | Entorno de **desarrollo** |
+| `docker-compose.lab.yml`   | Despliegue en el **laboratorio** (la base de datos es RDS) |
 
-El frontend se publica solo en `127.0.0.1:80` de la EC2, así que **desde Internet no se ve**. Hay dos opciones:
-
-**Opción A (recomendada): túnel SSH.** Desde tu ordenador:
-
-```bash
-ssh -i tu-clave.pem -L 8080:localhost:80 ec2-user@<IP-PUBLICA-EC2>
-```
-
-Mientras la sesión esté abierta, abre <http://localhost:8080> en tu navegador. (El usuario puede ser `ec2-user` o `ubuntu` según la AMI.)
-
-**Opción B: abrir el puerto 80 solo a tu IP.** En el grupo de seguridad de la EC2, añade una regla de entrada HTTP (80) con origen *Mi IP* (nunca `0.0.0.0/0`). Además, en `docker-compose.lab.yml` cambia `"127.0.0.1:80:80"` por `"80:80"`, porque si no Docker seguirá escuchando solo en local. Después entra en `http://<IP-PUBLICA-EC2>`.
-
-## Qué está verificado y qué no
-
-- ✅ Verificado: el backend compila y los tests (`mvnw test`) pasan; sin `DB_HOST` o `DB_PASSWORD` el backend se niega a arrancar con un mensaje claro.
-- **[POR VERIFICAR EN LAB LIMPIO]**: construcción de las imágenes Docker, `docker compose up` en desarrollo, la conexión a RDS con `sslmode=require`, el acceso por túnel SSH y por grupo de seguridad, y la web funcionando de extremo a extremo.
+> La solución de referencia está en la rama `solucion`. Conviene intentarlo por tu cuenta antes de mirarla.

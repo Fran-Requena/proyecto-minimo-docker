@@ -10,7 +10,10 @@ public class MuroNotasApplication {
     private static final String[] VARIABLES_OBLIGATORIAS = {"DB_HOST", "DB_PASSWORD"};
 
     public static void main(String[] args) {
-        comprobarVariablesObligatorias();
+        // Con el perfil "local" se usa H2 en memoria y no hacen falta las variables de la BD
+        if (!perfilLocalActivo(args)) {
+            comprobarVariablesObligatorias();
+        }
         SpringApplication.run(MuroNotasApplication.class, args);
     }
 
@@ -23,5 +26,24 @@ public class MuroNotasApplication {
                 System.exit(1);
             }
         }
+    }
+
+    /** Detecta si el perfil activo es "local" (argumento, propiedad -D o variable de entorno). */
+    private static boolean perfilLocalActivo(String[] args) {
+        String perfiles = System.getProperty("spring.profiles.active", System.getenv("SPRING_PROFILES_ACTIVE"));
+        for (String arg : args) {
+            if (arg.startsWith("--spring.profiles.active=")) {
+                perfiles = arg.substring("--spring.profiles.active=".length());
+            }
+        }
+        if (perfiles == null) {
+            return false;
+        }
+        for (String perfil : perfiles.split(",")) {
+            if (perfil.trim().equals("local")) {
+                return true;
+            }
+        }
+        return false;
     }
 }

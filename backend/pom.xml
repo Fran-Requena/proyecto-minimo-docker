@@ -44,21 +44,25 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Tests: H2 es una base de datos en memoria, solo para las pruebas -->
+        <!-- H2: base de datos en memoria. Scope runtime (antes test) porque ahora también se usa
+             al ejecutar el programa con el perfil "local", sin instalar PostgreSQL.
+             Sin ese perfil, la aplicación sigue usando PostgreSQL. -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Tests -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
-        <!-- Nombre fijo del .jar para que el Dockerfile lo encuentre sin adivinar -->
+        <!-- Nombre fijo del .jar para que el Dockerfile (que escribirás tú) lo encuentre sin adivinar -->
         <finalName>muro-notas</finalName>
         <plugins>
             <plugin>
