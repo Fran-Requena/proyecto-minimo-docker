@@ -599,7 +599,7 @@ En **RDS → Crear base de datos**:
 | Multi-AZ | Desactivado. *Si no aparece la opción, no hay que hacer nada.* |
 | Identificador de la instancia | `muro-notas` |
 | Nombre de usuario maestro | `postgres` |
-| Contraseña maestra | La que tú elijas. **Apúntala**: irá en el `.env`. |
+| Contraseña maestra | Exactamente **`MuroNotas_Lab_2026!`**: es la clave de laboratorio común para toda la clase y ya viene en `.env.example` |
 | Clase de instancia | `db.t3.micro` |
 | Almacenamiento | 20 GB, **gp3** |
 | Escalado automático del almacenamiento | **DESACTIVADO** |
@@ -681,12 +681,9 @@ cp .env.example .env
 nano .env
 ```
 
-En `nano`, cambia como mínimo:
+En `nano`, cambia `DB_HOST=` por el punto de enlace de RDS.
 
-- `DB_HOST=` → el punto de enlace de RDS.
-- `DB_PASSWORD=` → la contraseña maestra que pusiste al crear RDS.
-
-Deja `DB_NAME=muronotas`, `DB_USER=postgres` y `DB_SSLMODE=require`. Guarda con `Ctrl+O`, `Enter`, y sal con `Ctrl+X`.
+`DB_PASSWORD` ya trae `MuroNotas_Lab_2026!`, la misma contraseña que pusiste al crear RDS: no la cambies. Deja también `DB_NAME=muronotas`, `DB_USER=postgres` y `DB_SSLMODE=require`. Guarda con `Ctrl+O`, `Enter`, y sal con `Ctrl+X`.
 
 Construye y arranca:
 
@@ -845,7 +842,7 @@ Ves el nuevo título en <http://localhost:8080> a través del túnel, y las nota
 
 | Síntoma | Causa | Solución |
 |---------|-------|----------|
-| Maven dice `Unknown lifecycle phase ".run.profiles=local"` al ejecutar en PowerShell | PowerShell trocea el argumento `-D` sin comillas | Pon el argumento entre comillas: `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` |
+| Al ejecutar en PowerShell sale un error de Maven parecido a `Unknown lifecycle phase ".run.profiles=local"` | PowerShell trocea el argumento `-D` sin comillas | Pon el argumento entre comillas: `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"` |
 | La terminal se queda "parada" tras `Started MuroNotasApplication` | No es un error: el servidor está esperando peticiones | Abre <http://localhost:8080>. Para pararlo, `Ctrl+C` |
 | `git push` se queda parado sin mensajes | Está esperando el inicio de sesión de GitHub en una ventana | Busca la ventana del navegador o del gestor de credenciales y completa el inicio de sesión |
 | AWS rechaza el nombre del grupo de seguridad | Los nombres no pueden empezar por `sg-` | Usa `muro-ec2-sg` y `muro-rds-sg` |
@@ -860,8 +857,8 @@ Ves el nuevo título en <http://localhost:8080> a través del túnel, y las nota
 | `bind ... Address already in use` al abrir el túnel | El puerto 8080 de tu PC está ocupado (por ejemplo, el programa del paso 1) | Para lo que esté usando el 8080 |
 | `required variable DB_PASSWORD is missing a value` (o `DB_HOST`) | Falta la variable en el `.env` o está vacía | Edita el `.env`; recuerda que debe estar en la misma carpeta que el compose |
 | Log del backend: `Connection timed out` / `connect timed out` | El grupo de seguridad de RDS no deja pasar a la EC2 | `muro-rds-sg`: regla 5432 con origen `muro-ec2-sg`; la EC2 debe tener `muro-ec2-sg` |
-| Log del backend: `password authentication failed for user "postgres"` | `DB_PASSWORD` (o `DB_USER`) no coincide con RDS | Corrige el `.env` y ejecuta `up -d`. Si no recuerdas la contraseña: RDS → Modificar → nueva contraseña maestra |
-| Log del backend: `database "muronotas" does not exist` | No se puso el nombre de base de datos inicial al crear RDS | Lo más sencillo en el lab: borra la instancia de RDS y créala de nuevo con **Nombre de base de datos inicial `muronotas`** |
+| Log del backend: `password authentication failed for user "postgres"` | `DB_PASSWORD` (o `DB_USER`) no coincide con RDS | Comprueba que el `.env` tiene `DB_PASSWORD=MuroNotas_Lab_2026!` y ejecuta `up -d`. Si en RDS pusiste otra: RDS → Modificar → contraseña maestra `MuroNotas_Lab_2026!` |
+| Log del backend: `database "muronotas" does not exist` | No se puso el nombre de base de datos inicial al crear RDS | **[POR VERIFICAR EN LAB LIMPIO]** Créala desde la EC2 con un contenedor temporal de `psql` (te pedirá la contraseña): `docker run --rm -it postgres:17-alpine psql "host=ENDPOINT_RDS user=postgres dbname=postgres sslmode=require" -c "CREATE DATABASE muronotas;"`, cambiando `ENDPOINT_RDS` por tu punto de enlace. Después, `up -d` |
 | La web muestra `API: ERROR · BD: ? · contenedor: ?` | Nginx no consigue hablar con el backend (parado, reiniciándose o arrancando) | `docker compose -f docker-compose.lab.yml ps` y `logs backend` |
 | El cambio no aparece tras `git pull` | Has hecho `up -d` sin `--build` | `docker compose -f docker-compose.lab.yml up -d --build` (y `Ctrl+F5` en el navegador) |
 | La compilación en la EC2 se corta o la instancia deja de responder | Poca memoria (instancia t3.micro) | Usa **t3.small** |
@@ -928,4 +925,4 @@ Sugerencia; el profesor las adaptará:
 
 **Reto 3.** No ves el cambio. `index.html` se copia **dentro de la imagen** del frontend al construirla (`COPY index.html ...`). `git pull` actualiza los ficheros de la EC2, pero la imagen sigue siendo la antigua, y `up -d` sin `--build` no la reconstruye: como la imagen no ha cambiado, Compose ni siquiera recrea el contenedor. Arreglo: `docker compose -f docker-compose.lab.yml up -d --build`.
 
-**Reto 4.** La página **sí carga**, porque `index.html` lo sirve Nginx, que sigue en marcha. Pero todas las llamadas a `/api/` fallan (Nginx responde *502 Bad Gateway*), así que la franja muestra `API: ERROR · BD: ? · contenedor: ?` y no aparecen las notas. Es la prueba de que son dos contenedores independientes. Arreglo: `docker compose -f docker-compose.lab.yml start backend`.
+**Reto 4.** La página **sí carga**, porque `index.html` lo sirve Nginx, que sigue en marcha. Pero todas las llamadas a `/api/` fallan (Nginx responde con un error 502 (o 504); **[POR VERIFICAR EN LAB LIMPIO]**), así que la franja muestra `API: ERROR · BD: ? · contenedor: ?` y no aparecen las notas. Es la prueba de que son dos contenedores independientes. Arreglo: `docker compose -f docker-compose.lab.yml start backend`.

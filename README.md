@@ -110,4 +110,4 @@ Tendrás que crear estos ficheros:
 | `docker-compose.yml`       | Entorno de **desarrollo** |
 | `docker-compose.lab.yml`   | Despliegue en el **laboratorio** (la base de datos es RDS) |
 
-> La solución de referencia está en la rama `solucion`. Conviene intentarlo por tu cuenta antes de mirarla.
+> La solución de referencia está en la rama [`solucion` del repositorio del profesor](https://github.com/guillermofoix/proyecto-minimo-docker/tree/solucion), no en el tuyo (al crear tu repositorio desde la plantilla solo se copia `main`). Conviene intentarlo por tu cuenta antes de mirarla.
