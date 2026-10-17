@@ -97,7 +97,7 @@ Hibernate crea la tabla `notas` al arrancar (`spring.jpa.hibernate.ddl-auto=upda
 
 ## Tu tarea
 
-El programa ya funciona, pero **le faltan todos los ficheros de contenedores**. Tu tarea es **dockerizar el proyecto y desplegarlo en el laboratorio** siguiendo la guía **T03**.
+El programa ya funciona, pero **le faltan todos los ficheros de contenedores**. Tu tarea es **dockerizar el proyecto y desplegarlo en el laboratorio** siguiendo la guía **[T03 · Docker: del IDE al laboratorio](docs/T03_Docker_Del_IDE_al_lab.md)**.
 
 Tendrás que crear estos ficheros:
 
