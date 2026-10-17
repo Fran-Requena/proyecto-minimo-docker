@@ -43,6 +43,8 @@ Al terminar tendrás el **Muro de notas** (una pizarra de post-its compartida) f
 - La base de datos en **RDS PostgreSQL**, fuera de los contenedores y sin acceso público.
 - Acceso desde tu navegador a través de un **túnel SSH**: la web no está abierta a Internet.
 
+**Tiempo estimado:** unas 2 horas (alrededor de 1 hora en el laboratorio).
+
 ### Requisitos previos
 
 - Cuenta de **GitHub** y **Git** instalado en tu PC.
@@ -603,6 +605,7 @@ En **RDS → Crear base de datos**:
 | Clase de instancia | `db.t3.micro` |
 | Almacenamiento | 20 GB, **gp3** |
 | Escalado automático del almacenamiento | **DESACTIVADO** |
+| Copias de seguridad automáticas | Retención de 1 día |
 | Conectividad / recurso de EC2 | No conectar a un recurso informático de EC2 |
 | VPC | La predeterminada |
 | Acceso público | **No** |
@@ -776,7 +779,7 @@ Es la prueba de que la arquitectura funciona: los contenedores se pueden borrar 
 ### Qué hacer
 
 1. En la web, crea tres o cuatro notas y dale like a alguna. Apunta el valor de `contenedor` que aparece en la franja.
-2. En la EC2 (en otra terminal, o cierra el túnel y vuelve a abrirlo después), **borra** los contenedores:
+2. En la EC2, **borra** los contenedores. Puedes hacerlo en la misma sesión SSH del túnel: es una terminal de la EC2 como cualquier otra. Mientras el frontend esté parado la web no cargará, pero el túnel sigue abierto.
 
    ```bash
    docker compose -f docker-compose.lab.yml down
@@ -793,7 +796,7 @@ Es la prueba de que la arquitectura funciona: los contenedores se pueden borrar 
 
    No hace falta `--build`: las imágenes ya existen.
 
-4. Recarga la web (abre el túnel otra vez si lo cerraste).
+4. Recarga la web.
 
 ### Hecho cuando
 
@@ -830,6 +833,8 @@ docker compose -f docker-compose.lab.yml up -d --build
 
 `--build` es **imprescindible**: el código está dentro de la imagen, así que sin reconstruirla seguirías ejecutando la versión anterior. Compose solo recrea los contenedores cuya imagen ha cambiado.
 
+Si solo se reconstruye el backend y después la web muestra `API: ERROR`, reinicia el frontend: `docker compose -f docker-compose.lab.yml restart frontend` (ver la [tabla de errores](#14-errores-frecuentes)).
+
 Recarga la web. Si no ves el cambio, fuerza la recarga con `Ctrl+F5` (el navegador puede tener la página en caché).
 
 ### Hecho cuando
@@ -852,7 +857,7 @@ Ves el nuevo título en <http://localhost:8080> a través del túnel, y las nota
 | No encuentras `labsuser.pem` en la consola de EC2 | La clave no se descarga ahí | Página del laboratorio de AWS Academy → **AWS Details → Download PEM** |
 | `Permissions for 'labsuser.pem' are too open` | Windows deja leer la clave a otros usuarios | Los dos comandos `icacls` del paso 11 (en Linux, `chmod 400`) |
 | `Permission denied (publickey)` al hacer SSH | Usuario equivocado (`ec2-user`) o clave equivocada | Usa `ubuntu@<IP>` y `-i labsuser.pem` |
-| Tras conectar por SSH no pasa nada | Es lo correcto: el túnel está abierto | Deja la sesión abierta y abre <http://localhost:8080> |
+| Tras conectar por SSH solo ves el prompt de la EC2 y nada más | Es lo correcto: el túnel está abierto mientras dure la sesión | Deja la sesión abierta y abre <http://localhost:8080> |
 | `ssh` no conecta (*timed out*) tras reiniciar el lab | La IP pública de la EC2 ha cambiado, o tu IP de casa ha cambiado | Mira la nueva IP pública de la EC2; si cambió la tuya, edita la regla **Mi IP** de `muro-ec2-sg` |
 | `bind ... Address already in use` al abrir el túnel | El puerto 8080 de tu PC está ocupado (por ejemplo, el programa del paso 1) | Para lo que esté usando el 8080 |
 | `required variable DB_PASSWORD is missing a value` (o `DB_HOST`) | Falta la variable en el `.env` o está vacía | Edita el `.env`; recuerda que debe estar en la misma carpeta que el compose |
@@ -861,6 +866,7 @@ Ves el nuevo título en <http://localhost:8080> a través del túnel, y las nota
 | Log del backend: `database "muronotas" does not exist` | No se puso el nombre de base de datos inicial al crear RDS | **[POR VERIFICAR EN LAB LIMPIO]** Créala desde la EC2 con un contenedor temporal de `psql` (te pedirá la contraseña): `docker run --rm -it postgres:17-alpine psql "host=ENDPOINT_RDS user=postgres dbname=postgres sslmode=require" -c "CREATE DATABASE muronotas;"`, cambiando `ENDPOINT_RDS` por tu punto de enlace. Después, `up -d` |
 | La web muestra `API: ERROR · BD: ? · contenedor: ?` | Nginx no consigue hablar con el backend (parado, reiniciándose o arrancando) | `docker compose -f docker-compose.lab.yml ps` y `logs backend` |
 | El cambio no aparece tras `git pull` | Has hecho `up -d` sin `--build` | `docker compose -f docker-compose.lab.yml up -d --build` (y `Ctrl+F5` en el navegador) |
+| Tras reconstruir solo el backend, la web muestra `API: ERROR` aunque el backend funcione | Nginx resolvió la IP de `backend` al arrancar y sigue usando la del contenedor anterior | **[POR VERIFICAR EN LAB LIMPIO]** `docker compose -f docker-compose.lab.yml restart frontend` |
 | La compilación en la EC2 se corta o la instancia deja de responder | Poca memoria (instancia t3.micro) | Usa **t3.small** |
 
 ---
@@ -871,7 +877,7 @@ Retos cortos para provocar fallos a propósito, como en T02. Para cada uno: **pr
 
 **Reto 1. Sin contraseña.** En la EC2, comenta la línea `DB_PASSWORD` del `.env` (pon `#` delante) y ejecuta `docker compose -f docker-compose.lab.yml up -d`. ¿Llega a arrancar algún contenedor? ¿Quién te avisa del problema: Spring, Docker Compose o PostgreSQL?
 
-**Reto 2. Cortar el paso a la base de datos.** Con todo funcionando, borra la regla de entrada 5432 de `muro-rds-sg`. Espera unos 20 segundos y mira la franja de la web. Después reinicia el backend (`docker compose -f docker-compose.lab.yml restart backend`) y mira `ps` y `logs backend`. Vuelve a poner la regla.
+**Reto 2. Cortar el paso a la base de datos.** Con todo funcionando, borra la regla de entrada 5432 de `muro-rds-sg`. **Predice dos cosas:** qué mostrará la franja de la web en el minuto siguiente, y qué pasará si después reinicias el backend. Compruébalo: mira la franja durante un rato, luego ejecuta `docker compose -f docker-compose.lab.yml restart backend` y mira `ps` y `logs backend`. Vuelve a poner la regla.
 
 **Reto 3. Olvidar `--build`.** Cambia el `<h1>` de `index.html` en tu PC, haz push y, en la EC2, `git pull` y `docker compose -f docker-compose.lab.yml up -d` **sin** `--build`. ¿Ves el cambio? ¿Por qué?
 
@@ -882,7 +888,7 @@ Retos cortos para provocar fallos a propósito, como en T02. Para cada uno: **pr
 ## 16. Limpieza y costes
 
 - Al terminar la sesión, pulsa **End Lab** en la página del laboratorio. **No** uses **Reset**: borra todo lo que has creado (EC2, RDS, grupos de seguridad) y tendrías que empezar de cero.
-- Con **End Lab** las instancias se paran y dejan de gastar crédito de cómputo, pero el almacenamiento sigue contando. No dejes recursos que no uses.
+- Al terminar, comprueba en la consola que la EC2 aparece **Detenida**; si RDS sigue **Disponible**, detenla en **RDS → Acciones → Detener temporalmente**.
 - **RDS se vuelve a encender sola a los 7 días** de estar parada. Si vas a estar tiempo sin usar el lab, entra y para la base de datos de nuevo, o bórrala cuando hayas entregado.
 - **La IP pública de la EC2 cambia** cada vez que la instancia se para y se arranca (por ejemplo, al terminar y volver a iniciar el lab). Antes de abrir el túnel, mira la IP nueva en la consola. Tu `.env` no cambia: usa el punto de enlace de RDS, que es fijo.
 - Cuando vuelvas, los contenedores arrancan solos (`restart: unless-stopped`) en cuanto Docker se inicia. Compruébalo con `docker compose -f docker-compose.lab.yml ps`.
@@ -921,7 +927,7 @@ Sugerencia; el profesor las adaptará:
 
 **Reto 1.** No arranca ningún contenedor. Avisa **Docker Compose**, antes de crear nada, por la sintaxis `${DB_PASSWORD:?...}`: muestra un error con el texto `Falta DB_PASSWORD en el fichero .env`. Es la primera línea de defensa; la segunda sería la comprobación de `main()` en Spring. Arreglo: quita el `#` y vuelve a ejecutar `up -d`.
 
-**Reto 2.** Con el backend ya arrancado, la franja pasa a **rojo** con `BD: ERROR`: la API sigue viva, pero la consulta de prueba a la base de datos no llega y se rinde a los 3 segundos (`connection-timeout=3000`). Al reiniciar el backend sin acceso a RDS, Spring no consigue conectar durante el arranque. **[POR VERIFICAR EN LAB LIMPIO]** Lo esperado es que el contenedor falle y `restart: unless-stopped` lo reinicie una y otra vez (en `ps` aparece *Restarting*), y que en `logs backend` haya errores de conexión con *timeout*. Arreglo: vuelve a poner la regla 5432 con origen `muro-ec2-sg`; el backend se recupera solo en el siguiente reinicio, o con `restart backend`.
+**Reto 2.** **[POR VERIFICAR EN LAB LIMPIO]** Lo más probable es que la franja **siga en verde** un rato. Los grupos de seguridad no interrumpen las conexiones ya establecidas: el backend tiene un grupo de conexiones abiertas con RDS (el *pool* de Hikari) y las sigue reutilizando. Lo que falla es abrir conexiones **nuevas**. Cuando el *pool* necesite una (por ejemplo, al renovar las que caducan), la consulta de prueba se rendirá a los 3 segundos (`connection-timeout=3000`) y la franja pasará a `BD: ERROR`. Al reiniciar el backend, el fallo es inmediato: el *pool* empieza vacío y Spring no consigue conectar durante el arranque. Lo esperado es que el contenedor falle y `restart: unless-stopped` lo reinicie una y otra vez (en `ps` aparece *Restarting*), y que en `logs backend` haya errores de conexión con *timeout*. Arreglo: vuelve a poner la regla 5432 con origen `muro-ec2-sg`; el backend se recupera solo en el siguiente reinicio, o con `restart backend`.
 
 **Reto 3.** No ves el cambio. `index.html` se copia **dentro de la imagen** del frontend al construirla (`COPY index.html ...`). `git pull` actualiza los ficheros de la EC2, pero la imagen sigue siendo la antigua, y `up -d` sin `--build` no la reconstruye: como la imagen no ha cambiado, Compose ni siquiera recrea el contenedor. Arreglo: `docker compose -f docker-compose.lab.yml up -d --build`.
 
